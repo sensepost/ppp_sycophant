@@ -17,8 +17,8 @@ print_usage(){
 # pptpsetup --create my_tunnel --server $target --username $username --password IDONTCARE
 # pon my_tunnel debug dump logfd 2 nodetach
 # ------
-# SSTP TUNNEL
-# $supplicant  --log-stderr --cert-warn --user $username --password IDONTCARE --log-level 3 $target usepeerdns require-mschap-v2 noauth noipdefault defaultroute refuse-eap debug logfd 2
+# SSTP TUNNEL (Seems to work with default mikrotik)
+# $supplicant  --log-stderr --cert-warn --user $username --password IDONTCARE --log-level 3 $target usepeerdns require-mschap-v2 noauth noipdefault defaultroute refuse-eap debug logfd 2 novj
 # ------
 
 while getopts 't:h' flag; do
@@ -67,11 +67,13 @@ echo -n "I" > /tmp/SYCOPHANT_STATE
 printf "SYCOPHANT : Waiting for Identity\n"
 while true
 do
-    if [[ -s /tmp/SYCOPHANT_P1ID ]]; then
-        if [[ -s /tmp/SYCOPHANT_P2ID ]]; then
+    if [[ -s /tmp/SYCOPHANT_P2ID ]]; then
+        if [[ -s /tmp/SYCOPHANT_P1ID ]]; then
             username=$(cat /tmp/SYCOPHANT_P2ID)
             printf "SYCOPHANT : RUNNING \"$sstpc  --log-stderr --cert-warn --user $username --password IDONTCARE --log-level 3 ${target} usepeerdns require-mschap-v2 noauth noipdefault defaultroute refuse-eap  debug logfd 2\"\n"
-            $supplicant  --log-stderr --cert-warn --user $username --password IDONTCARE --log-level 3 $target usepeerdns require-mschap-v2 noauth noipdefault defaultroute refuse-eap debug logfd 2
+            # $supplicant  --log-stderr --cert-warn --user $username --password IDONTCARE --log-level 3 --log-lineno $target usepeerdns require-mschap-v2 noauth noipdefault defaultroute nodeflate novj refuse-eap debug logfd 2
+            pptpsetup --create my_tunnel --server $target --username $username --password IDONTCARE
+            pon my_tunnel debug dump logfd 2 nodetach
             break
         fi
     fi
@@ -80,4 +82,8 @@ done
 # printf "SYCOPHANT : RUNNING \"dhclient $interface\"\n"
 # dhclient $interface 
 
+echo "We wait 2s to make sure things have relayed"
+sleep 6
+
 wait
+

